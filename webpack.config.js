@@ -5,6 +5,56 @@ const dashLibraryName = packagejson.name.replace(/-/g, '_');
 const WebpackDashDynamicImport = require('@plotly/webpack-dash-dynamic-import');
 const { EsbuildPlugin } = require('esbuild-loader');
 
+// Externalized react/jsx-runtime.
+// Newer Dash versions provide window.ReactJSXRuntime for React 19 compatability.
+// The fallback keeps this bundle compatible with older Dash versions.
+const jsxRuntimeExternal = `var (window.ReactJSXRuntime || (window.ReactJSXRuntime = (function (React) {
+    function jsx(type, config, maybeKey) {
+        var props = {};
+        var children = null;
+
+        if (config != null) {
+            if (config.key !== undefined) {
+                props.key = '' + config.key;
+            }
+
+            for (var propName in config) {
+                if (
+                    Object.prototype.hasOwnProperty.call(config, propName) &&
+                    propName !== 'key' &&
+                    propName !== '__self' &&
+                    propName !== '__source'
+                ) {
+                    if (propName === 'children') {
+                        children = config[propName];
+                    } else {
+                        props[propName] = config[propName];
+                    }
+                }
+            }
+        }
+
+        if (maybeKey !== undefined) {
+            props.key = '' + maybeKey;
+        }
+
+        if (children === null || children === undefined) {
+            return React.createElement(type, props);
+        }
+
+        return Array.isArray(children)
+            ? React.createElement.apply(React, [type, props].concat(children))
+            : React.createElement(type, props, children);
+    }
+
+    return {
+        jsx: jsx,
+        jsxs: jsx,
+        jsxDEV: jsx,
+        Fragment: React.Fragment
+    };
+})(window.React)))`;
+
 module.exports = (env, argv) => {
 
     let mode;
@@ -41,6 +91,8 @@ module.exports = (env, argv) => {
         'react-dom': 'ReactDOM',
         'plotly.js': 'Plotly',
         'prop-types': 'PropTypes',
+        'react/jsx-runtime': jsxRuntimeExternal,
+        'react/jsx-dev-runtime': jsxRuntimeExternal,
     });
 
     return {
